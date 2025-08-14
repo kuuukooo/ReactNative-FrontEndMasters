@@ -1,9 +1,9 @@
 import { Text, StyleSheet, FlatList, View } from 'react-native';
-import { countdownStorageKey, PersistedCountdownState } from './';
 import { useEffect, useState } from 'react';
 import { getFromStorage } from '../../utils/storage';
 import { format } from 'date-fns';
 import { theme } from '../../theme';
+import { countdownStorageKey, PersistedCountdownState } from '.';
 
 const fullDateFormat = `LLL d yyyy, h:mm aaa`;
 
