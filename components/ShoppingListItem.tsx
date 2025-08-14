@@ -50,7 +50,11 @@ export function ShoppingListItem({
       onPress={onToggleComplete}
     >
       <View style={styles.row}>
-        <Entypo name='check' size={24} color='black' />
+        <Entypo
+          name={isCompleted ? 'check' : 'circle'}
+          size={24}
+          color={isCompleted ? theme.colorGrey : theme.colorCerulean}
+        />
         <Text
           numberOfLines={1}
           style={[
