@@ -3,8 +3,31 @@ import Feather from '@expo/vector-icons/Feather';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { theme } from '../theme';
+import * as Notifications from 'expo-notifications';
+import { useEffect } from 'react';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function Layout() {
+  useEffect(() => {
+    const subReceived = Notifications.addNotificationReceivedListener(() => {});
+    const subResponse = Notifications.addNotificationResponseReceivedListener(
+      () => {}
+    );
+    return () => {
+      subReceived.remove();
+      subResponse.remove();
+    };
+  }, []);
+
   return (
     <Tabs screenOptions={{ tabBarActiveTintColor: theme.colorCerulean }}>
       <Tabs.Screen
