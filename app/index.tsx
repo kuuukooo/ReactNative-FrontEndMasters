@@ -38,7 +38,7 @@ export default function App() {
         ...shoppingList,
       ];
       setShoppingList(newShoppingList);
-      saveToStorage(storageKey, shoppingList);
+      saveToStorage(storageKey, newShoppingList);
       setValue('');
     }
   };
