@@ -5,34 +5,61 @@ import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
 import { Duration, intervalToDuration, isBefore } from 'date-fns';
 import { TimeSegment } from '../../components/TimeSegment';
+import { getFromStorage, saveToStorage } from '../../utils/storage';
 
-//10 segundos a partir de ahora
-const timestamp = Date.now() + 10 * 1000;
+// 10 segundos en ms (ajusta a tu necesidad real)
+const frequency = 10 * 1000;
+const countdownStorageKey = 'taskly-countdown';
+
+type PersistedCountdownState = {
+  currentNotificationId: string | undefined;
+  completedAtTimestamps: number[]; // historial (más reciente primero)
+};
 
 type CountdownStatus = {
   isOverdue: boolean;
-  distance: Duration;
+  distance: Duration; // diferencia entre ahora y el siguiente deadline (o tiempo transcurrido si está atrasado)
 };
 
 export default function CounterScreen() {
+  const [countdownState, setCountdownState] =
+    useState<PersistedCountdownState>();
   const [status, setStatus] = useState<CountdownStatus>({
     isOverdue: false,
-    distance: {},
+    distance: {} as Duration,
   });
 
+  // Última vez que se marcó como completado
+  const lastCompletedAt = countdownState?.completedAtTimestamps[0];
+
+  // Carga inicial desde storage
+  useEffect(() => {
+    const init = async () => {
+      const value = await getFromStorage(countdownStorageKey);
+      setCountdownState(value);
+    };
+    init();
+  }, []);
+
+  // Actualiza el countdown cada segundo
   useEffect(() => {
     const intervalId = setInterval(() => {
-      const isOverdue = isBefore(timestamp, Date.now());
+      const nextDueTimestamp = lastCompletedAt
+        ? lastCompletedAt + frequency
+        : Date.now() + frequency; // primera vez: fija un deadline a futuro
+
+      const overdue = isBefore(nextDueTimestamp, Date.now());
+
       const distance = intervalToDuration(
-        isOverdue
-          ? { end: Date.now(), start: timestamp }
-          : { start: Date.now(), end: timestamp }
+        overdue
+          ? { start: nextDueTimestamp, end: Date.now() } // tiempo de atraso
+          : { start: Date.now(), end: nextDueTimestamp } // tiempo restante
       );
 
-      setStatus({ isOverdue, distance });
+      setStatus({ isOverdue: overdue, distance });
     }, 1000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [lastCompletedAt]);
 
   const scheduleNotification = async () => {
     try {
@@ -45,20 +72,40 @@ export default function CounterScreen() {
         return;
       }
 
-      const seconds = 5;
-
-      await Notifications.scheduleNotificationAsync({
+      // Programa nueva notificación
+      const newNotificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Notificación de prueba 📨',
-          body: 'Se programó hace unos segundos y la app estaba en primer plano.',
-          data: { source: 'counter-test' },
+          title: 'La tarea está pendiente!',
+          body: 'Marca como hecha para reiniciar el ciclo.',
+          data: { source: 'counter' },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds,
+          seconds: Math.floor(frequency / 1000),
         },
       });
-      Alert.alert('Programada', `Se mostrará en ~${seconds}s (si iOS >= 60s).`);
+
+      // Cancela la notificación anterior si existía
+      if (countdownState?.currentNotificationId) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(
+            countdownState.currentNotificationId
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const now = Date.now();
+      const newState: PersistedCountdownState = {
+        currentNotificationId: newNotificationId,
+        completedAtTimestamps: countdownState
+          ? [now, ...countdownState.completedAtTimestamps]
+          : [now],
+      };
+
+      setCountdownState(newState);
+      await saveToStorage(countdownStorageKey, newState);
     } catch (e: any) {
       Alert.alert(
         'Error',
